@@ -12,7 +12,7 @@ groq_client = Groq(api_key=groq_api_key)
 
 # Google Sheets URL and worksheet ID from secrets
 url = st.secrets["connections"]["gsheets"]["spreadsheet_url"]
-worksheet_id = st.secrets["connections"]["gsheets"]["worksheet_id"]
+worksheet_id = "835818411"
 
 @st.cache_data
 def get_data_from_gsheet(url, worksheet_id):
