@@ -1,5 +1,5 @@
 import streamlit as st
-from st_gsheets_connection import GSheetsConnection
+from streamlit_gsheets import GSheetsConnection
 from groq import Groq
 import json
 
