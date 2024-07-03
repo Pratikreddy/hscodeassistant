@@ -2,6 +2,7 @@ import streamlit as st
 from st_gsheets_connection import GSheetsConnection
 from groq import Groq
 import json
+
 # Set up the page
 st.set_page_config(page_title="HS Code Lookup System", layout="wide")
 
@@ -9,17 +10,17 @@ st.set_page_config(page_title="HS Code Lookup System", layout="wide")
 groq_api_key = st.secrets["GROQ_API_KEY"]
 groq_client = Groq(api_key=groq_api_key)
 
-# Google Sheets URL and sheet ID
-url = "https://docs.google.com/spreadsheets/d/1wgliY7XyZF-p4FUa1MiELUlQ3v1Tg6KDZzWuyW8AMo4/edit?usp=sharing"
-sheet_id = "835818411"
+# Google Sheets URL and worksheet ID from secrets
+url = st.secrets["connections"]["gsheets"]["spreadsheet_url"]
+worksheet_id = st.secrets["connections"]["gsheets"]["worksheet_id"]
 
 @st.cache_data
-def get_data_from_gsheet(url, sheet_id):
+def get_data_from_gsheet(url, worksheet_id):
     conn = st.experimental_connection("gsheets", type=GSheetsConnection)
-    data = conn.read(spreadsheet=url, worksheet=sheet_id)
+    data = conn.read(spreadsheet=url, usecols=list(range(5)), worksheet=worksheet_id)
     return data
 
-data = get_data_from_gsheet(url, sheet_id)
+data = get_data_from_gsheet(url, worksheet_id)
 
 # Construct the system message from the Google Sheets data
 system_message = """
@@ -88,4 +89,3 @@ st.button("Send", on_click=send_message)
 # Display data from Google Sheets
 st.write("## Product Data")
 st.dataframe(data)
-
