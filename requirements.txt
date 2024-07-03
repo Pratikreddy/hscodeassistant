@@ -1,5 +1,5 @@
 streamlit==1.36.0
-streamlit_gsheets==0.0.4
+git+https://github.com/streamlit/gsheets-connection
 groq==0.9.0
 pandas==1.5.3
 numpy==1.21.0
