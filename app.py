@@ -1,8 +1,7 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
+from st_gsheets_connection import GSheetsConnection
 from groq import Groq
 import json
-
 # Set up the page
 st.set_page_config(page_title="HS Code Lookup System", layout="wide")
 
