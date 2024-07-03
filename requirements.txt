@@ -1,6 +1,4 @@
-streamlit
-st-gsheets-connection
-streamlit_gsheets
+streamlit==1.36.0
+st-gsheets-connection==0.0.4
 groq
 pandas
-
