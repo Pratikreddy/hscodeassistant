@@ -1,5 +1,6 @@
-streamlit==1.36.0
 git+https://github.com/streamlit/gsheets-connection
-groq==0.9.0
+groq
+streamlit
+st-gsheets-connection
+numpy==1.24.4
 pandas==1.5.3
-numpy==1.21.0
