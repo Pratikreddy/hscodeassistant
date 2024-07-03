@@ -1,6 +1,8 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 from groq import Groq
+import pandas as pd
+from datetime import datetime
 import json
 
 # Set up the page
@@ -11,16 +13,18 @@ groq_api_key = st.secrets["GROQ_API_KEY"]
 groq_client = Groq(api_key=groq_api_key)
 
 # Google Sheets URL and worksheet ID from secrets
-url = st.secrets["connections"]["gsheets"]["spreadsheet_url"]
-worksheet_id = "835818411"
+spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet_url"]
+worksheet_id = st.secrets["connections"]["gsheets"]["worksheet_id"]
+
+# Set up connection to Google Sheets
+conn = st.experimental_connection("gsheets", type=GSheetsConnection)
 
 @st.cache_data
 def get_data_from_gsheet(url, worksheet_id):
-    conn = st.experimental_connection("gsheets", type=GSheetsConnection)
     data = conn.read(spreadsheet=url, usecols=list(range(5)), worksheet=worksheet_id)
     return data
 
-data = get_data_from_gsheet(url, worksheet_id)
+data = get_data_from_gsheet(spreadsheet_url, worksheet_id)
 
 # Construct the system message from the Google Sheets data
 system_message = """
@@ -45,42 +49,65 @@ for index, row in data.iterrows():
 
 # Initialize chat history as a session state
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [{"role": "system", "content": system_message}]
-if "input_buffer" not in st.session_state:
-    st.session_state.input_buffer = ""
+    st.session_state.chat_history = []
 
-# Title and description
-st.title("HS Code Lookup System")
-st.write("Automated and accurate HS Code information at your fingertips.")
+if "worksheet_name" not in st.session_state:
+    st.session_state.worksheet_name = None
 
-# Display chat history
-for message in st.session_state.chat_history:
-    if message["role"] == "user":
-        st.markdown(f"<div style='border: 2px solid blue; padding: 10px; margin: 10px 0; border-radius: 8px; width: 80%; float: right; clear: both;'>{message['content']}</div>", unsafe_allow_html=True)
-    elif message["role"] == "assistant":
-        st.markdown(f"<div style='border: 2px solid green; padding: 10px; margin: 10px 0; border-radius: 8px; width: 80%; float: left; clear: both;'>{message['content']}</div>", unsafe_allow_html=True)
-
-# Function to handle message sending and processing
+# Function to handle sending a message
 def send_message():
     if st.session_state.input_buffer:
+        message = st.session_state.input_buffer  # Store the input in a variable
+        
         # Append user input to chat history
-        st.session_state.chat_history.append({"role": "user", "content": st.session_state.input_buffer})
+        st.session_state.chat_history.append({"role": "user", "content": message, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
 
-        # Call Groq API with the chat history
+        # Create a new worksheet if it's the first message
+        if st.session_state.worksheet_name is None:
+            st.session_state.worksheet_name = f"Chat_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            conn.create(worksheet=st.session_state.worksheet_name, data=pd.DataFrame(st.session_state.chat_history))
+
+        # Call Groq API with the entire chat history
         response = groq_client.chat.completions.create(
             model="llama3-70b-8192",
-            messages=st.session_state.chat_history,
+            messages=[{"role": "system", "content": system_message}] + [{"role": chat["role"], "content": chat["content"]} for chat in st.session_state.chat_history],
             temperature=0.3,
             max_tokens=2000
         )
         chatbot_response = response.choices[0].message.content.strip()
 
         # Append chatbot response to chat history
-        st.session_state.chat_history.append({"role": "assistant", "content": chatbot_response})
+        st.session_state.chat_history.append({"role": "assistant", "content": chatbot_response, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
 
-        # Clear the input buffer
+        # Save chat history to the created worksheet
+        data = pd.DataFrame(st.session_state.chat_history)
+        conn.update(worksheet=st.session_state.worksheet_name, data=data)  # Update the created worksheet
+        st.success("Chat history saved to Google Sheets")
+
+        # Clear the input buffer and trigger rerun
         st.session_state.input_buffer = ""
-        st.experimental_rerun()  # Trigger rerun to clear input
+        st.session_state.run_count += 1  # Trigger a rerun by updating session state
+
+if "run_count" not in st.session_state:
+    st.session_state.run_count = 0  # Initialize run count
+
+# Streamlit app UI
+st.title("HS Code Lookup System")
+st.write("Automated and accurate HS Code information at your fingertips.")
+
+# Display chat history with custom borders
+st.markdown("### Chat")
+for message in st.session_state.chat_history:
+    if message["role"] == "user":
+        st.markdown(
+            f"<div style='border: 2px solid blue; padding: 10px; margin: 10px 0; border-radius: 8px; width: 80%; float: right; clear: both;'>{message['content']}</div>",
+            unsafe_allow_html=True
+        )
+    elif message["role"] == "assistant":
+        st.markdown(
+            f"<div style='border: 2px solid green; padding: 10px; margin: 10px 0; border-radius: 8px; width: 80%; float: left; clear: both;'>{message['content']}</div>",
+            unsafe_allow_html=True
+        )
 
 # Input for chat messages
 user_input = st.text_input("Type your message here:", key="input_buffer")
@@ -89,3 +116,6 @@ st.button("Send", on_click=send_message)
 # Display data from Google Sheets
 st.write("## Product Data")
 st.dataframe(data)
+
+# Dummy element to force rerun without showing error
+st.write(f"Run count: {st.session_state.run_count}")
