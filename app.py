@@ -13,8 +13,8 @@ groq_api_key = st.secrets["GROQ_API_KEY"]
 groq_client = Groq(api_key=groq_api_key)
 
 # Google Sheets URL and worksheet ID from secrets
-spreadsheet_url = st.secrets["connections"]["gsheets"]["spreadsheet_url"]
-worksheet_id = st.secrets["connections"]["gsheets"]["worksheet_id"]
+spreadsheet_url = "https://docs.google.com/spreadsheets/d/1wgliY7XyZF-p4FUa1MiELUlQ3v1Tg6KDZzWuyW8AMo4/edit?gid=835818411#gid=835818411"
+worksheet_id = "835818411"
 
 # Set up connection to Google Sheets
 conn = st.experimental_connection("gsheets", type=GSheetsConnection)
