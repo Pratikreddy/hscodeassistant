@@ -79,7 +79,7 @@ def read_image_base64(image_path):
         return base64.b64encode(image_file.read()).decode('utf-8')
 
 # Function to send a prompt (text and/or image) to OpenAI API
-def process_prompt_openai(system_prompt, user_prompt, image_path=None):
+def process_prompt_openai(messages, image_path=None):
     base64_image = read_image_base64(image_path) if image_path else None
 
     headers = {
@@ -89,30 +89,20 @@ def process_prompt_openai(system_prompt, user_prompt, image_path=None):
     payload = {
         "model": "gpt-4o",
         "response_format": {"type": "json_object"},
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"""system prompt : {system_prompt}, user_prompt : {user_prompt}, expected format : JSON."""
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}"
-                        }
-                    }
-                ] if base64_image else [
-                    {
-                        "type": "text",
-                        "text": f"""system prompt : {system_prompt}, user_prompt : {user_prompt}, expected format : JSON."""
-                    }
-                ]
-            }
-        ],
+        "messages": messages,
         "max_tokens": 3000
     }
+    if base64_image:
+        payload["messages"].append({
+            "role": "user",
+            "content": {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{base64_image}"
+                }
+            }
+        })
+    
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     return response.json()
 
@@ -121,9 +111,6 @@ def send_message():
     user_prompt = st.session_state.input_buffer
     imgpath = "temp_image.png" if uploaded_file else None
 
-    # Combine system message and chat history
-    system_prompt = system_message + " ".join([f"""{msg["content"]}""" for msg in st.session_state.chat_history])
-
     if not user_prompt and not uploaded_file:
         st.write("Please provide a text input, an image, or both.")
     else:
@@ -131,8 +118,6 @@ def send_message():
             # Save the uploaded file temporarily
             with open(imgpath, "wb") as f:
                 f.write(uploaded_file.getbuffer())
-        
-        response = process_prompt_openai(system_prompt, user_prompt, imgpath)
 
         # Update chat history
         if user_prompt:
@@ -140,7 +125,9 @@ def send_message():
         if uploaded_file:
             st.session_state.chat_history.append({"role": "user", "content": f"Image: {uploaded_file.name}"})
 
-        st.session_state.chat_history.append({"role": "assistant", "content": f"""{response}"""})
+        response = process_prompt_openai(st.session_state.chat_history, imgpath)
+
+        st.session_state.chat_history.append({"role": "assistant", "content": response})
         st.session_state.input_buffer = ""
 
     st.experimental_rerun()  # Trigger rerun to clear input and update chat history
