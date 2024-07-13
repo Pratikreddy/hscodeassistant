@@ -131,8 +131,7 @@ def send_message():
 
         # Call the OpenAI API with the chat history
         response = process_prompt_openai(system_prompt, user_prompt, imgpath)
-
-        st.session_state.chat_history.append({"role": "assistant", "content": response})
+        st.session_state.chat_history.append({"role": "assistant", "content": f"""{response}"""})
         st.session_state.input_buffer = ""
 
     st.experimental_rerun()  # Trigger rerun to clear input and update chat history
