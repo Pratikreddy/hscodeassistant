@@ -1,8 +1,11 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
-from groq import Groq
 import pandas as pd
 from datetime import datetime
+import base64
+import openai
+import os
+import requests
 import json
 
 # Set up the page
@@ -11,6 +14,10 @@ st.set_page_config(page_title="HS Code Lookup System", layout="wide")
 # Initialize the Groq client using the API key from Streamlit secrets
 groq_api_key = st.secrets["GROQ_API_KEY"]
 groq_client = Groq(api_key=groq_api_key)
+
+# Load the OpenAI API key from Streamlit secrets
+openai_api_key = st.secrets["openai"]["api_key"]
+openai.api_key = openai_api_key
 
 # Google Sheets URL and worksheet ID from secrets
 spreadsheet_url = "https://docs.google.com/spreadsheets/d/1wgliY7XyZF-p4FUa1MiELUlQ3v1Tg6KDZzWuyW8AMo4/edit?gid=835818411"
@@ -70,30 +77,85 @@ for message in st.session_state.chat_history:
     elif message["role"] == "assistant":
         st.markdown(f"<div style='border: 2px solid green; padding: 10px; margin: 10px 0; border-radius: 8px; width: 80%; float: left; clear: both;'>{message['content']}</div>", unsafe_allow_html=True)
 
+# Helper function to read image bytes and encode them in base64
+def read_image_base64(image_path):
+    with open(image_path, 'rb') as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+# Function to send a prompt (text and/or image) to OpenAI API
+def process_prompt_openai(system_prompt, user_prompt, image_path=None):
+    base64_image = read_image_base64(image_path) if image_path else None
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {openai_api_key}"
+    }
+    payload = {
+        "model": "gpt-4o",
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"""system prompt : {system_prompt}, user_prompt : {user_prompt}, expected format : JSON."""
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    }
+                ] if base64_image else [
+                    {
+                        "type": "text",
+                        "text": f"""system prompt : {system_prompt}, user_prompt : {user_prompt}, expected format : JSON."""
+                    }
+                ]
+            }
+        ],
+        "max_tokens": 3000
+    }
+    response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+    return response.json()
+
 # Function to handle message sending and processing
 def send_message():
-    if st.session_state.input_buffer:
-        # Append user input to chat history
-        st.session_state.chat_history.append({"role": "user", "content": st.session_state.input_buffer})
+    user_prompt = st.session_state.input_buffer
+    imgpath = "temp_image.png" if uploaded_file else None
 
-        # Call Groq API with the chat history
-        response = groq_client.chat.completions.create(
-            model="llama3-70b-8192",
-            messages=st.session_state.chat_history,
-            temperature=0.3,
-            max_tokens=2000
-        )
-        chatbot_response = response.choices[0].message.content.strip()
+    # Combine system message and chat history
+    system_prompt = system_message + " ".join([f"""{msg["content"]}""" for msg in st.session_state.chat_history])
 
-        # Append chatbot response to chat history
-        st.session_state.chat_history.append({"role": "assistant", "content": chatbot_response})
+    if not user_prompt and not uploaded_file:
+        st.write("Please provide a text input, an image, or both.")
+    else:
+        if uploaded_file:
+            # Save the uploaded file temporarily
+            with open(imgpath, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+        
+        response = process_prompt_openai(system_prompt, user_prompt, imgpath)
 
-        # Clear the input buffer
+        # Update chat history
+        if user_prompt:
+            st.session_state.chat_history.append({"role": "user", "content": user_prompt})
+        if uploaded_file:
+            st.session_state.chat_history.append({"role": "user", "content": f"Image: {uploaded_file.name}"})
+
+        st.session_state.chat_history.append({"role": "assistant", "content": f"""{response}"""})
         st.session_state.input_buffer = ""
-        st.experimental_rerun()  # Trigger rerun to clear input
+
+    st.experimental_rerun()  # Trigger rerun to clear input and update chat history
 
 # Input for chat messages
 user_input = st.text_input("Type your message here:", key="input_buffer")
+
+# File upload for image
+uploaded_file = st.file_uploader("Upload an image file", type=["jpg", "jpeg", "png"])
+
+# Send button
 st.button("Send", on_click=send_message)
 
 # Display data from Google Sheets
