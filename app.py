@@ -95,7 +95,10 @@ def process_prompt_openai(system_prompt, user_prompt, image_path=None):
     if base64_image:
         messages.append({
             "role": "user",
-            "content": {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+            "content": {
+                "type": "image_url",
+                "url": f"data:image/jpeg;base64,{base64_image}"
+            }
         })
 
     payload = {
