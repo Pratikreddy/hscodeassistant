@@ -11,10 +11,6 @@ import json
 # Set up the page
 st.set_page_config(page_title="HS Code Lookup System", layout="wide")
 
-# Initialize the Groq client using the API key from Streamlit secrets
-groq_api_key = st.secrets["GROQ_API_KEY"]
-groq_client = Groq(api_key=groq_api_key)
-
 # Load the OpenAI API key from Streamlit secrets
 openai_api_key = st.secrets["openai"]["api_key"]
 openai.api_key = openai_api_key
