@@ -39,7 +39,7 @@ system_message = """
 You are a virtual assistant providing HS Code information. Be professional and informative.
 Do not make up any details you do not know. Always sound smart and refer to yourself as Jarvis.
 
-Only output the information given below and nothing else of your own knowledge. This is the only truth. Translate everything to English to the best of your ability. json
+Only output the information given below and nothing else of your own knowledge. This is the only truth. Translate everything to English to the best of your ability.
 
 We help you find the right HS Code for your products quickly and accurately. Save time and avoid customs issues with our automated HS Code lookup tool.
 
@@ -79,7 +79,7 @@ def read_image_base64(image_path):
         return base64.b64encode(image_file.read()).decode('utf-8')
 
 # Function to send a prompt (text and/or image) to OpenAI API
-def process_prompt_openai(messages, image_path=None):
+def process_prompt_openai(system_prompt, user_prompt, image_path=None):
     base64_image = read_image_base64(image_path) if image_path else None
 
     headers = {
@@ -89,7 +89,10 @@ def process_prompt_openai(messages, image_path=None):
     payload = {
         "model": "gpt-4o",
         "response_format": {"type": "json_object"},
-        "messages": messages,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
         "max_tokens": 3000
     }
     if base64_image:
@@ -119,13 +122,15 @@ def send_message():
             with open(imgpath, "wb") as f:
                 f.write(uploaded_file.getbuffer())
 
-        # Update chat history
+        # Combine system message and chat history
+        system_prompt = system_message
         if user_prompt:
             st.session_state.chat_history.append({"role": "user", "content": user_prompt})
         if uploaded_file:
             st.session_state.chat_history.append({"role": "user", "content": f"Image: {uploaded_file.name}"})
 
-        response = process_prompt_openai(st.session_state.chat_history, imgpath)
+        # Call the OpenAI API with the chat history
+        response = process_prompt_openai(system_prompt, user_prompt, imgpath)
 
         st.session_state.chat_history.append({"role": "assistant", "content": response})
         st.session_state.input_buffer = ""
