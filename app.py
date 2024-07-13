@@ -1,19 +1,16 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-from datetime import datetime
 import base64
 import openai
-import os
 import requests
-import json
 
 # Set up the page
 st.set_page_config(page_title="HS Code Lookup System", layout="wide")
 
 # Load the OpenAI API key from Streamlit secrets
-openai_api_key = st.secrets["openai"]["api_key"]
-openai.api_key = openai_api_key
+api_key = st.secrets["openai"]["api_key"]
+openai.api_key = api_key
 
 # Google Sheets URL and worksheet ID from secrets
 spreadsheet_url = "https://docs.google.com/spreadsheets/d/1wgliY7XyZF-p4FUa1MiELUlQ3v1Tg6KDZzWuyW8AMo4/edit?gid=835818411"
@@ -86,7 +83,7 @@ def process_prompt_openai(system_prompt, user_prompt, image_path=None):
 
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {openai_api_key}"
+        "Authorization": f"Bearer {api_key}"
     }
     messages = [
         {"role": "system", "content": system_prompt},
@@ -97,7 +94,9 @@ def process_prompt_openai(system_prompt, user_prompt, image_path=None):
             "role": "user",
             "content": {
                 "type": "image_url",
-                "url": f"data:image/jpeg;base64,{base64_image}"
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{base64_image}"
+                }
             }
         })
 
