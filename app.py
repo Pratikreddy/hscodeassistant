@@ -1,9 +1,10 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
-import pandas as pd
 import base64
 import openai
 import requests
+import json
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 
 # Set up the page
 st.set_page_config(page_title="HS Code Lookup System", layout="wide")
@@ -92,12 +93,19 @@ def process_prompt_openai(system_prompt, user_prompt, image_path=None):
     if base64_image:
         messages.append({
             "role": "user",
-            "content": {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/jpeg;base64,{base64_image}"
+            "content": [
+                {
+                    "type": "text",
+                    "text": user_prompt
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_image}",
+                        "detail": "high"
+                    }
                 }
-            }
+            ]
         })
 
     payload = {
@@ -131,7 +139,7 @@ def send_message():
 
         # Call the OpenAI API with the chat history
         response = process_prompt_openai(system_prompt, user_prompt, imgpath)
-        st.session_state.chat_history.append({"role": "assistant", "content": f"""{response}"""})
+        st.session_state.chat_history.append({"role": "assistant", "content": response})
         st.session_state.input_buffer = ""
 
     st.experimental_rerun()  # Trigger rerun to clear input and update chat history
