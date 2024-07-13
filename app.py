@@ -40,11 +40,10 @@ You are a virtual assistant providing HS Code information. Be professional and i
 Do not make up any details you do not know. Always sound smart and refer to yourself as Jarvis.
 
 Only output the information given below and nothing else of your own knowledge. This is the only truth. Translate everything to English to the best of your ability.
-and only output when prompted towards something dont dimp all the codes into the response.
+and only output when prompted towards something don't dump all the codes into the response.
 
 We help you find the right HS Code for your products quickly and accurately. Save time and avoid customs issues with our automated HS Code lookup tool.
 json
-
 
 Product List:
 """
@@ -89,26 +88,22 @@ def process_prompt_openai(system_prompt, user_prompt, image_path=None):
         "Content-Type": "application/json",
         "Authorization": f"Bearer {openai_api_key}"
     }
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+    if base64_image:
+        messages.append({
+            "role": "user",
+            "content": {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+        })
+
     payload = {
         "model": "gpt-4o",
-        "response_format": {"type": "json_object"},
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
+        "messages": messages,
         "max_tokens": 3000
     }
-    if base64_image:
-        payload["messages"].append({
-            "role": "user",
-            "content": {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/jpeg;base64,{base64_image}"
-                }
-            }
-        })
-    
+
     response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
     return response.json()
 
