@@ -32,8 +32,8 @@ def get_data_from_gsheet(url, worksheet_id):
 
 data = get_data_from_gsheet(spreadsheet_url, worksheet_id)
 
-# Construct the system message from the Google Sheets data
-system_message = """
+# Construct the initial system message from the Google Sheets data
+initial_system_message = """
 You are a virtual assistant providing HS Code information. Be professional and informative.
 Do not make up any details you do not know. Always sound smart and refer to yourself as Jarvis.
 
@@ -41,14 +41,13 @@ Only output the information given below and nothing else of your own knowledge. 
 and only output when prompted towards something don't dump all the codes into the response.
 
 We help you find the right HS Code for your products quickly and accurately. Save time and avoid customs issues with our automated HS Code lookup tool.
-json
 
 Product List:
 """
 
 if not data.empty:
     for index, row in data.iterrows():
-        system_message += f"""
+        initial_system_message += f"""
 {row['Product Name']}
 * Definisi: {row['Definition']}
 * Bahan: {row['Material']}
@@ -58,9 +57,7 @@ if not data.empty:
 
 # Initialize chat history as a session state
 if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [{"role": "system", "content": system_message}]
-if "input_buffer" not in st.session_state:
-    st.session_state.input_buffer = ""
+    st.session_state.chat_history = []
 
 # Title and description
 st.title("HS Code Lookup System")
@@ -79,17 +76,16 @@ def read_image_base64(image_path):
         return base64.b64encode(image_file.read()).decode('utf-8')
 
 # Function to send a prompt (text and/or image) to OpenAI API
-def process_prompt_openai(system_prompt, user_prompt, image_paths=None):
-    base64_images = [read_image_base64(image_path) for image_path in image_paths] if image_paths else None
+def process_prompt_openai(system_prompt, chat_history, image_paths=None):
+    base64_images = [read_image_base64(image_path) for image_path in image_paths] if image_paths else []
 
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
     }
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ]
+    messages = [{"role": "system", "content": system_prompt}]
+    for entry in chat_history:
+        messages.append({"role": entry["role"], "content": entry["content"]})
     if base64_images:
         image_contents = []
         for base64_image in base64_images:
@@ -100,16 +96,13 @@ def process_prompt_openai(system_prompt, user_prompt, image_paths=None):
                     "detail": "high"
                 }
             })
-        messages[1]["content"] = [
-            {
-                "type": "text",
-                "text": user_prompt
-            },
-            *image_contents
-        ]
+        messages.append({
+            "role": "user",
+            "content": image_contents
+        })
 
     payload = {
-        "model": "gpt-4o",
+        "model": "gpt-4-vision-preview",
         "messages": messages,
         "max_tokens": 3000
     }
@@ -120,7 +113,7 @@ def process_prompt_openai(system_prompt, user_prompt, image_paths=None):
 # Function to handle message sending and processing
 def send_message():
     user_prompt = st.session_state.input_buffer
-    imgpaths = [f"temp_image_{i}.png" for i, _ in enumerate(uploaded_files)] if uploaded_files else None
+    imgpaths = [f"temp_image_{i}.png" for i, _ in enumerate(uploaded_files)] if uploaded_files else []
 
     if not user_prompt and not uploaded_files:
         st.write("Please provide a text input, an image, or both.")
@@ -131,16 +124,16 @@ def send_message():
                 with open(imgpaths[i], "wb") as f:
                     f.write(uploaded_file.getbuffer())
 
-        # Combine system message and chat history
-        system_prompt = system_message
+        # Append structured messages to chat history
         if user_prompt:
-            st.session_state.chat_history.append({"role": "user", "content": user_prompt})
+            st.session_state.chat_history.append({"role": "user", "content": f"<user-query>{user_prompt}</user-query>"})
         if uploaded_files:
-            st.session_state.chat_history.append({"role": "user", "content": f"Images: {[uploaded_file.name for uploaded_file in uploaded_files]}"})
+            for i, imgpath in enumerate(imgpaths):
+                st.session_state.chat_history.append({"role": "user", "content": f"<image-upload>{imgpath}</image-upload>"})
 
         # Call the OpenAI API with the chat history
-        response = process_prompt_openai(system_prompt, user_prompt, imgpaths)
-        st.session_state.chat_history.append({"role": "assistant", "content": response})
+        response = process_prompt_openai(initial_system_message, st.session_state.chat_history, imgpaths)
+        st.session_state.chat_history.append({"role": "assistant", "content": f"<assistant-response>{response}</assistant-response>"})
         st.session_state.input_buffer = ""
 
     st.experimental_rerun()  # Trigger rerun to clear input and update chat history
