@@ -79,8 +79,8 @@ def read_image_base64(image_path):
         return base64.b64encode(image_file.read()).decode('utf-8')
 
 # Function to send a prompt (text and/or image) to OpenAI API
-def process_prompt_openai(system_prompt, user_prompt, image_path=None):
-    base64_image = read_image_base64(image_path) if image_path else None
+def process_prompt_openai(system_prompt, user_prompt, image_paths=None):
+    base64_images = [read_image_base64(image_path) for image_path in image_paths] if image_paths else None
 
     headers = {
         "Content-Type": "application/json",
@@ -90,26 +90,26 @@ def process_prompt_openai(system_prompt, user_prompt, image_path=None):
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt}
     ]
-    if base64_image:
-        messages.append({
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": user_prompt
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/jpeg;base64,{base64_image}",
-                        "detail": "high"
-                    }
+    if base64_images:
+        image_contents = []
+        for base64_image in base64_images:
+            image_contents.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{base64_image}",
+                    "detail": "high"
                 }
-            ]
-        })
+            })
+        messages[1]["content"] = [
+            {
+                "type": "text",
+                "text": user_prompt
+            },
+            *image_contents
+        ]
 
     payload = {
-        "model": "gpt-4o",
+        "model": "gpt-4-vision-preview",
         "messages": messages,
         "max_tokens": 3000
     }
@@ -120,25 +120,26 @@ def process_prompt_openai(system_prompt, user_prompt, image_path=None):
 # Function to handle message sending and processing
 def send_message():
     user_prompt = st.session_state.input_buffer
-    imgpath = "temp_image.png" if uploaded_file else None
+    imgpaths = [f"temp_image_{i}.png" for i, _ in enumerate(uploaded_files)] if uploaded_files else None
 
-    if not user_prompt and not uploaded_file:
+    if not user_prompt and not uploaded_files:
         st.write("Please provide a text input, an image, or both.")
     else:
-        if uploaded_file:
-            # Save the uploaded file temporarily
-            with open(imgpath, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+        if uploaded_files:
+            # Save the uploaded files temporarily
+            for i, uploaded_file in enumerate(uploaded_files):
+                with open(imgpaths[i], "wb") as f:
+                    f.write(uploaded_file.getbuffer())
 
         # Combine system message and chat history
         system_prompt = system_message
         if user_prompt:
             st.session_state.chat_history.append({"role": "user", "content": user_prompt})
-        if uploaded_file:
-            st.session_state.chat_history.append({"role": "user", "content": f"Image: {uploaded_file.name}"})
+        if uploaded_files:
+            st.session_state.chat_history.append({"role": "user", "content": f"Images: {[uploaded_file.name for uploaded_file in uploaded_files]}"})
 
         # Call the OpenAI API with the chat history
-        response = process_prompt_openai(system_prompt, user_prompt, imgpath)
+        response = process_prompt_openai(system_prompt, user_prompt, imgpaths)
         st.session_state.chat_history.append({"role": "assistant", "content": response})
         st.session_state.input_buffer = ""
 
@@ -147,8 +148,13 @@ def send_message():
 # Input for chat messages
 user_input = st.text_input("Type your message here:", key="input_buffer")
 
-# File upload for image
-uploaded_file = st.file_uploader("Upload an image file", type=["jpg", "jpeg", "png"])
+# File upload for up to 3 images
+uploaded_files = st.file_uploader("Upload up to 3 image files", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+
+# Display thumbnails of uploaded images
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        st.image(uploaded_file, width=100)
 
 # Send button
 st.button("Send", on_click=send_message)
