@@ -102,7 +102,7 @@ def process_prompt_openai(system_prompt, chat_history, image_paths=None):
         })
 
     payload = {
-        "model": "gpt-4-vision-preview",
+        "model": "gpt-4o",
         "messages": messages,
         "max_tokens": 3000
     }
