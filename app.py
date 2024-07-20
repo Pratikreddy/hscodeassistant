@@ -142,7 +142,7 @@ def send_message():
 user_input = st.text_input("Type your message here:", key="input_buffer")
 
 # File upload for up to 3 images
-uploaded_files = st.file_uploader("Upload up to 3 image files", type=["jpg", "jpeg", "png"], accept_multiple files=True)
+uploaded_files = st.file_uploader("Upload up to 3 image files", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
 # Display thumbnails of uploaded images
 if uploaded_files:
