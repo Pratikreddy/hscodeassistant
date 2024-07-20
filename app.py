@@ -48,12 +48,14 @@ few shot eg.
 1) conveyer belts
 2) small screws
 3) clamps
-4) pumps, etc.
+4) pumps,
+5) rings, etc.
 so always list all available products in that type with dimensions and materials used. so an informed decesion can be taken.
 
 
 We help you find the right HS Code for your products quickly and accurately. Save time and avoid customs issues with our automated HS Code lookup tool.
 
+always only produce the codes mentioned below and nothing else from your knowledge.
 Product List:
 """
 
