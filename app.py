@@ -93,7 +93,7 @@ def process_prompt_openai(system_prompt, chat_history, image_paths=None):
                 "type": "image_url",
                 "image_url": {
                     "url": f"data:image/jpeg;base64,{base64_image}",
-                    "detail": "high"
+                    "detail": "low"
                 }
             })
         messages.append({
@@ -102,7 +102,7 @@ def process_prompt_openai(system_prompt, chat_history, image_paths=None):
         })
 
     payload = {
-        "model": "gpt-4o",
+        "model": "gpt-4o-mini",
         "messages": messages,
         "max_tokens": 3000
     }
